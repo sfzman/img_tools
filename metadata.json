@@ -1,0 +1,5 @@
+{
+  "name": "CharView AI",
+  "description": "Generate multi-view character sheets (Left, Back, Top-down, etc.) from a single front-facing reference photo using Gemini AI.",
+  "requestFramePermissions": []
+}

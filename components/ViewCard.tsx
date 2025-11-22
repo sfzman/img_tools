@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { GeneratedView, ViewConfig } from '../types';
 
@@ -25,9 +26,9 @@ export const ViewCard: React.FC<ViewCardProps> = ({ config, data }) => {
           <button 
             onClick={handleDownload}
             className="text-xs bg-primary-600 hover:bg-primary-500 text-white px-2 py-1 rounded transition-colors"
-            title="Download Image"
+            title="保存图片"
           >
-            Save
+            保存
           </button>
         )}
       </div>
@@ -36,7 +37,7 @@ export const ViewCard: React.FC<ViewCardProps> = ({ config, data }) => {
         {data.isLoading ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3">
             <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-xs text-slate-400 animate-pulse">Designing...</span>
+            <span className="text-xs text-slate-400 animate-pulse">生成设计中...</span>
           </div>
         ) : data.error ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
@@ -56,7 +57,7 @@ export const ViewCard: React.FC<ViewCardProps> = ({ config, data }) => {
           </>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-slate-600">
-            <span className="text-xs">Waiting to generate</span>
+            <span className="text-xs">等待生成...</span>
           </div>
         )}
       </div>

@@ -1,3 +1,4 @@
+
 import React, { useRef, useState } from 'react';
 
 interface UploadZoneProps {
@@ -75,10 +76,10 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onImageSelect }) => {
         </svg>
       </div>
 
-      <p className="text-lg font-medium text-slate-200">Upload Character Reference</p>
+      <p className="text-lg font-medium text-slate-200">上传角色参考图</p>
       <p className="text-sm text-slate-400 mt-2 text-center">
-        Drag & drop or click to browse<br/>
-        <span className="text-xs opacity-70">(JPEG, PNG, WEBP supported)</span>
+        拖拽图片到这里 或 点击上传<br/>
+        <span className="text-xs opacity-70">(支持 JPEG, PNG, WEBP)</span>
       </p>
     </div>
   );

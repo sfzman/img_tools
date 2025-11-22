@@ -15,7 +15,7 @@ const PHOTOROOM_API_KEY = process.env.PHOTOROOM_API_KEY;
 export const removeBackgroundWithPhotoroom = async (base64Image: string): Promise<string> => {
   // 1. Validation
   if (!PHOTOROOM_API_KEY) {
-    throw new Error('Photoroom API Key is not configured. Please set PHOTOROOM_API_KEY in your environment variables.');
+    throw new Error('Photoroom API Key 未配置。请在环境变量中设置 PHOTOROOM_API_KEY。');
   }
 
   try {
@@ -47,13 +47,13 @@ export const removeBackgroundWithPhotoroom = async (base64Image: string): Promis
       } catch (e) { /* ignore */ }
       
       if (response.status === 403 || response.status === 401) {
-        throw new Error('Invalid Photoroom API Key. Please check your environment variables.');
+        throw new Error('Photoroom API Key 无效，请检查您的环境变量。');
       }
       if (response.status === 402) {
-        throw new Error('Photoroom API credits exhausted.');
+        throw new Error('Photoroom API 额度已耗尽。');
       }
       
-      throw new Error(`Photoroom API Error (${response.status}): ${errorDetails}`);
+      throw new Error(`Photoroom API 错误 (${response.status}): ${errorDetails}`);
     }
 
     // 5. Convert result Blob back to Base64 for the UI
@@ -65,10 +65,10 @@ export const removeBackgroundWithPhotoroom = async (base64Image: string): Promis
         if (typeof reader.result === 'string') {
           resolve(reader.result);
         } else {
-          reject(new Error('Failed to convert Photoroom response to Base64'));
+          reject(new Error('无法将 Photoroom 响应转换为 Base64'));
         }
       };
-      reader.onerror = () => reject(new Error('Failed to read Photoroom response blob'));
+      reader.onerror = () => reject(new Error('无法读取 Photoroom 响应数据'));
       reader.readAsDataURL(resultBlob);
     });
 

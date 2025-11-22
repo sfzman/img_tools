@@ -8,7 +8,8 @@ import { removeBackgroundWithPhotoroom } from './services/photoroomService';
 import { GeneratedView, ViewGenerationStatus, AppMode, ViewConfig } from './types';
 
 const App: React.FC = () => {
-  const [activeMode, setActiveMode] = useState<AppMode>('multi-view');
+  // Set default mode to 'remove-bg' as requested
+  const [activeMode, setActiveMode] = useState<AppMode>('remove-bg');
   const [sourceImage, setSourceImage] = useState<string | null>(null);
   const [chibiPrompt, setChibiPrompt] = useState("holding a bubble tea");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -142,7 +143,7 @@ const App: React.FC = () => {
            <ViewCard 
              config={{
                id: 'chibi-result', 
-               title: 'Chibi Result', 
+               title: 'Q版生成结果', 
                description: chibiPrompt, 
                promptInstruction: ''
              }} 
@@ -158,8 +159,8 @@ const App: React.FC = () => {
            <ViewCard 
              config={{
                id: 'remove-bg-result', 
-               title: 'Photoroom Extraction', 
-               description: 'Background removed via Photoroom API', 
+               title: '抠图结果', 
+               description: '通过 Photoroom API 去除背景', 
                promptInstruction: ''
              }} 
              data={viewStatus['remove-bg-result']} 
@@ -233,10 +234,10 @@ const App: React.FC = () => {
                 {APP_MODES.find(m => m.id === activeMode)?.label}
                </h2>
                <p className="text-slate-400 text-sm">
-                {activeMode === 'multi-view' && 'Upload a full body or half body shot. Best results with front-facing pose.'}
-                {activeMode === 'expressions' && 'Upload a close-up or portrait shot for best facial details.'}
-                {activeMode === 'chibi' && 'Upload a full body shot to transform into a cute Q-version.'}
-                {activeMode === 'remove-bg' && 'Upload any character image to extract the subject onto a white background using Photoroom.'}
+                {activeMode === 'multi-view' && '请上传角色的全身照或半身照。正面角度效果最佳。'}
+                {activeMode === 'expressions' && '请上传一张面部特写或肖像照，以获得最佳的面部细节。'}
+                {activeMode === 'chibi' && '上传角色的全身照，将其转换为可爱的 Q 版（2-3头身）风格。'}
+                {activeMode === 'remove-bg' && '上传任何角色图片，使用 Photoroom 自动去除背景并提取主体。'}
                </p>
             </div>
 
@@ -245,12 +246,12 @@ const App: React.FC = () => {
             {/* Mode Specific Inputs */}
             {activeMode === 'chibi' && sourceImage && (
               <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-2">
-                <label className="text-xs font-medium text-primary-400 uppercase tracking-wider">Chibi Prompt</label>
+                <label className="text-xs font-medium text-primary-400 uppercase tracking-wider">Q 版提示词</label>
                 <textarea 
                   value={chibiPrompt}
                   onChange={(e) => setChibiPrompt(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none resize-none h-20"
-                  placeholder="Describe the pose or action..."
+                  placeholder="例如：手里拿着珍珠奶茶，正在眨眼..."
                 />
               </div>
             )}
@@ -258,12 +259,12 @@ const App: React.FC = () => {
             {sourceImage && (
               <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-sm font-medium text-slate-300">Reference Image</span>
+                    <span className="text-sm font-medium text-slate-300">参考原图</span>
                     <button 
                       onClick={() => setSourceImage(null)}
                       className="text-xs text-red-400 hover:text-red-300 underline"
                     >
-                      Remove
+                      移除
                     </button>
                  </div>
                  <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden bg-black">
@@ -277,7 +278,7 @@ const App: React.FC = () => {
           <div className="lg:col-span-7 flex flex-col h-full">
             
             <div className="flex justify-between items-center mb-6">
-               <h3 className="text-xl font-semibold text-white">Results</h3>
+               <h3 className="text-xl font-semibold text-white">生成结果</h3>
                
                <button
                 onClick={handleGenerate}
@@ -296,14 +297,14 @@ const App: React.FC = () => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Processing...
+                    处理中...
                   </>
                 ) : (
                   <>
                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
                      </svg>
-                     {activeMode === 'remove-bg' ? 'Extract Character' : 'Generate Images'}
+                     {activeMode === 'remove-bg' ? '开始抠图' : '开始生成'}
                   </>
                 )}
               </button>

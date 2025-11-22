@@ -4,10 +4,8 @@
  * Documentation: https://www.photoroom.com/api/docs/
  */
 
-// ------------------------------------------------------------------
-// CONFIGURATION: ENTER YOUR PHOTOROOM API KEY BELOW
-// ------------------------------------------------------------------
-const PHOTOROOM_API_KEY = 'YOUR_PHOTOROOM_API_KEY_HERE'; 
+// Use environment variable for API key
+const PHOTOROOM_API_KEY = process.env.PHOTOROOM_API_KEY;
 
 /**
  * Removes the background from a base64 encoded image using Photoroom API.
@@ -16,8 +14,8 @@ const PHOTOROOM_API_KEY = 'YOUR_PHOTOROOM_API_KEY_HERE';
  */
 export const removeBackgroundWithPhotoroom = async (base64Image: string): Promise<string> => {
   // 1. Validation
-  if (!PHOTOROOM_API_KEY || PHOTOROOM_API_KEY.includes('YOUR_PHOTOROOM_API_KEY')) {
-    throw new Error('Please configure your Photoroom API Key in services/photoroomService.ts');
+  if (!PHOTOROOM_API_KEY) {
+    throw new Error('Photoroom API Key is not configured. Please set PHOTOROOM_API_KEY in your environment variables.');
   }
 
   try {
@@ -49,7 +47,7 @@ export const removeBackgroundWithPhotoroom = async (base64Image: string): Promis
       } catch (e) { /* ignore */ }
       
       if (response.status === 403 || response.status === 401) {
-        throw new Error('Invalid Photoroom API Key. Please check services/photoroomService.ts');
+        throw new Error('Invalid Photoroom API Key. Please check your environment variables.');
       }
       if (response.status === 402) {
         throw new Error('Photoroom API credits exhausted.');

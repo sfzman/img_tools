@@ -32,7 +32,7 @@ export const ObjectEraser: React.FC<ObjectEraserProps> = ({ imageSrc, onResult, 
         const imageSegmenter = await ImageSegmenter.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath:
-              "https://storage.googleapis.com/mediapipe-models/image_segmenter/deep_lab_v3/float32/1/deep_lab_v3.tflite",
+              "https://storage.googleapis.com/mediapipe-models/image_segmenter/deeplab_v3/float32/latest/deeplab_v3.tflite",
             delegate: "GPU"
           },
           runningMode: "IMAGE",

@@ -13,8 +13,10 @@ export const ObjectEraser: React.FC<ObjectEraserProps> = ({ imageSrc, onResult, 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
+  
   const [segmenter, setSegmenter] = useState<ImageSegmenter | null>(null);
-  const [segmentationResult, setSegmentationResult] = useState<ImageSegmenterResult | null>(null);
+  const [maskData, setMaskData] = useState<Uint8Array | null>(null);
+  const imgNaturalSize = useRef<{ width: number, height: number }>({ width: 0, height: 0 });
   
   const [isModelLoading, setIsModelLoading] = useState(true);
   const [hoverCategory, setHoverCategory] = useState<number | null>(null);
@@ -59,80 +61,74 @@ export const ObjectEraser: React.FC<ObjectEraserProps> = ({ imageSrc, onResult, 
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.src = imageSrc;
+    
     img.onload = () => {
-      if (!canvasRef.current || !overlayRef.current) return;
+      if (!canvasRef.current || !overlayRef.current || !containerRef.current) return;
 
-      // Setup dimensions
       const canvas = canvasRef.current;
       const overlay = overlayRef.current;
       const container = containerRef.current;
       
-      if (!container) return;
-      
+      // Store natural size for coordinate mapping later
+      imgNaturalSize.current = { width: img.naturalWidth, height: img.naturalHeight };
+
       // Responsive sizing logic
       const maxWidth = container.clientWidth;
       const scale = Math.min(1, maxWidth / img.naturalWidth);
-      const width = img.naturalWidth * scale;
-      const height = img.naturalHeight * scale;
+      const displayWidth = img.naturalWidth * scale;
+      const displayHeight = img.naturalHeight * scale;
 
-      canvas.width = width;
-      canvas.height = height;
-      overlay.width = width;
-      overlay.height = height;
+      canvas.width = displayWidth;
+      canvas.height = displayHeight;
+      overlay.width = displayWidth;
+      overlay.height = displayHeight;
 
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.drawImage(img, 0, 0, width, height);
+        ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
       }
 
-      // Run segmentation
-      // We need to pass the DOM image element to MediaPipe
-      const result = segmenter.segment(img); // segmenter works best with original resolution
-      setSegmentationResult(result);
+      // Run segmentation on the original image
+      // segmenter.segment() is synchronous for 'IMAGE' mode
+      const result = segmenter.segment(img);
+      
+      if (result.categoryMask) {
+        // CRITICAL FIX: Extract the raw Uint8Array from the MPMask object
+        const rawMask = result.categoryMask.getAsUint8Array();
+        setMaskData(rawMask);
+      }
     };
   }, [segmenter, imageSrc]);
 
   // Handle Mouse Interactions
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!segmentationResult || !overlayRef.current) return;
+    if (!maskData || !overlayRef.current || imgNaturalSize.current.width === 0) return;
 
     const rect = overlayRef.current.getBoundingClientRect();
+    
+    // 1. Get mouse position relative to the canvas element (CSS pixels)
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
-    // Convert screen coordinates to original image coordinates for the mask lookup
-    // The segmentation result usually matches the input image size (which we scaled in canvas)
-    // Wait, deep_lab_v3 result size matches input size.
-    // We drew the image scaled.
-    
-    const scaleX = overlayRef.current.width / rect.width;
-    const scaleY = overlayRef.current.height / rect.height;
-    
-    const canvasX = Math.floor(x * scaleX);
-    const canvasY = Math.floor(y * scaleY);
+    // 2. Normalize coordinates (0.0 to 1.0)
+    const normX = x / rect.width;
+    const normY = y / rect.height;
 
-    // However, the categoryMask is based on the ORIGINAL image passed to segment().
-    // We need to map canvas coords back to original image coords IF segment() used original image.
-    // In our `img.onload`, we passed `img` (natural size) to `segmenter.segment(img)`.
-    // So the mask is naturalWidth x naturalHeight.
-    
-    const img = new Image();
-    img.src = imageSrc; // This is sync for cached images usually, but we need dimensions
-    const ratioX = img.naturalWidth / overlayRef.current.width;
-    const ratioY = img.naturalHeight / overlayRef.current.height;
-    
-    const maskX = Math.floor(canvasX * ratioX);
-    const maskY = Math.floor(canvasY * ratioY);
+    // 3. Map to original image mask coordinates
+    const maskX = Math.floor(normX * imgNaturalSize.current.width);
+    const maskY = Math.floor(normY * imgNaturalSize.current.height);
 
-    // Get category index
-    const mask = segmentationResult.categoryMask as any; // Float32Array or Uint8Array
-    if (!mask) return;
+    // Boundary check
+    if (maskX < 0 || maskX >= imgNaturalSize.current.width || maskY < 0 || maskY >= imgNaturalSize.current.height) {
+      setHoverCategory(null);
+      return;
+    }
 
-    const width = img.naturalWidth;
-    const index = maskY * width + maskX;
+    // 4. Look up category in the 1D mask array
+    const index = maskY * imgNaturalSize.current.width + maskX;
     
-    if (index >= 0 && index < mask.length) {
-      const category = mask[index];
+    if (index >= 0 && index < maskData.length) {
+      const category = maskData[index];
       if (category !== hoverCategory) {
         setHoverCategory(category);
       }
@@ -155,7 +151,7 @@ export const ObjectEraser: React.FC<ObjectEraserProps> = ({ imageSrc, onResult, 
 
   // Draw Overlay
   useEffect(() => {
-    if (!segmentationResult || !overlayRef.current) return;
+    if (!maskData || !overlayRef.current || imgNaturalSize.current.width === 0) return;
     
     const overlay = overlayRef.current;
     const ctx = overlay.getContext('2d');
@@ -163,26 +159,17 @@ export const ObjectEraser: React.FC<ObjectEraserProps> = ({ imageSrc, onResult, 
 
     ctx.clearRect(0, 0, overlay.width, overlay.height);
 
-    const mask = segmentationResult.categoryMask as any;
-    if (!mask) return;
-
-    // We need to draw on the SCALED canvas, but mask is ORIGINAL size.
-    // For performance, doing pixel manipulation on a large image in JS loop every frame is bad.
-    // But for a demo, we try to optimize: Create an offscreen canvas of mask size, draw there, then drawImage scaled.
+    const maskWidth = imgNaturalSize.current.width;
+    const maskHeight = imgNaturalSize.current.height;
     
-    const img = new Image();
-    img.src = imageSrc;
-    const maskWidth = img.naturalWidth;
-    const maskHeight = img.naturalHeight;
-    
-    if (maskWidth === 0) return;
+    if (maskWidth === 0 || maskHeight === 0) return;
 
-    // Create ImageData for the mask
+    // Create ImageData for the mask at original resolution
     const maskImageData = new ImageData(maskWidth, maskHeight);
     const data = maskImageData.data;
 
-    for (let i = 0; i < mask.length; i++) {
-      const category = mask[i];
+    for (let i = 0; i < maskData.length; i++) {
+      const category = maskData[i];
       const isSelected = selectedCategories.has(category);
       const isHovered = category === hoverCategory;
 
@@ -210,24 +197,23 @@ export const ObjectEraser: React.FC<ObjectEraserProps> = ({ imageSrc, onResult, 
     tempCanvas.width = maskWidth;
     tempCanvas.height = maskHeight;
     const tempCtx = tempCanvas.getContext('2d');
-    tempCtx?.putImageData(maskImageData, 0, 0);
+    if (tempCtx) {
+      tempCtx.putImageData(maskImageData, 0, 0);
+      // Draw scaled to fit the visible canvas
+      ctx.drawImage(tempCanvas, 0, 0, overlay.width, overlay.height);
+    }
 
-    // Draw scaled to fit the visible canvas
-    ctx.drawImage(tempCanvas, 0, 0, overlay.width, overlay.height);
-
-  }, [segmentationResult, hoverCategory, selectedCategories, imageSrc]);
+  }, [maskData, hoverCategory, selectedCategories]);
 
   // Execute Erasure
   const handleErase = async () => {
-    if (selectedCategories.size === 0 || !segmentationResult) return;
+    if (selectedCategories.size === 0 || !maskData) return;
     setIsProcessing(true);
 
     try {
       // 1. Generate Black/White Mask Image
-      const img = new Image();
-      img.src = imageSrc;
-      const width = img.naturalWidth;
-      const height = img.naturalHeight;
+      const width = imgNaturalSize.current.width;
+      const height = imgNaturalSize.current.height;
       
       const maskCanvas = document.createElement('canvas');
       maskCanvas.width = width;
@@ -235,21 +221,22 @@ export const ObjectEraser: React.FC<ObjectEraserProps> = ({ imageSrc, onResult, 
       const ctx = maskCanvas.getContext('2d');
       if (!ctx) throw new Error("Canvas context error");
 
-      // Fill black
+      // Fill black (background)
       ctx.fillStyle = "black";
       ctx.fillRect(0, 0, width, height);
 
-      const mask = segmentationResult.categoryMask as any;
+      // Create white mask for selected objects
       const maskImageData = ctx.getImageData(0, 0, width, height);
       const data = maskImageData.data;
 
-      for (let i = 0; i < mask.length; i++) {
-        if (selectedCategories.has(mask[i])) {
+      for (let i = 0; i < maskData.length; i++) {
+        if (selectedCategories.has(maskData[i])) {
           const pxIndex = i * 4;
           data[pxIndex] = 255;     // R
           data[pxIndex + 1] = 255; // G
           data[pxIndex + 2] = 255; // B
-          // Alpha remains 255 from fillRect or set explicitly
+          // Alpha is 255 (opaque)
+          data[pxIndex + 3] = 255;
         }
       }
       ctx.putImageData(maskImageData, 0, 0);

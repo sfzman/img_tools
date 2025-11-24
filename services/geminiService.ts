@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 
 // Initialize the client
@@ -102,6 +103,62 @@ export const generateCharacterView = async (
 
   } catch (error) {
     console.error("Gemini API Error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Erases objects from an image using Gemini 2.5 Flash Image ("nano banana").
+ * We send two images:
+ * 1. The original image.
+ * 2. A mask image (black background, white object) indicating what to remove.
+ */
+export const eraseObjectWithGemini = async (
+  originalBase64: string,
+  maskBase64: string
+): Promise<string> => {
+  try {
+    const originalData = originalBase64.split(',')[1] || originalBase64;
+    const originalMime = originalBase64.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/png';
+
+    const maskData = maskBase64.split(',')[1] || maskBase64;
+    const maskMime = maskBase64.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/png';
+
+    const prompt = `
+    I have provided two images. 
+    The first image is the original picture. 
+    The second image is a black and white mask where the white area represents an object I want to remove.
+    
+    Task: Remove the object highlighted by the white area in the mask from the original image. 
+    Fill in the erased area naturally to match the surrounding background (inpainting). 
+    Do not change anything else in the image. Return the full edited image.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: {
+        parts: [
+          { text: prompt },
+          { inlineData: { mimeType: originalMime, data: originalData } },
+          { inlineData: { mimeType: maskMime, data: maskData } }
+        ]
+      }
+    });
+
+    const candidates = response.candidates;
+    if (candidates && candidates.length > 0) {
+      const parts = candidates[0].content.parts;
+      for (const part of parts) {
+        if (part.inlineData && part.inlineData.data) {
+          return `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
+        }
+      }
+    }
+    
+    throw new Error("No image data found in response");
+
+  } catch (error) {
+    console.error("Gemini Erasure Error:", error);
     throw error;
   }
 };

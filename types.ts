@@ -1,4 +1,5 @@
-export type AppMode = 'multi-view' | 'expressions' | 'chibi' | 'remove-bg';
+
+export type AppMode = 'multi-view' | 'expressions' | 'chibi' | 'remove-bg' | 'object-erase';
 
 export interface ViewConfig {
   id: string;

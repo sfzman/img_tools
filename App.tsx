@@ -2,6 +2,7 @@
 import React, { useState, useCallback } from 'react';
 import { UploadZone } from './components/UploadZone';
 import { ViewCard } from './components/ViewCard';
+import { ObjectEraser } from './components/ObjectEraser';
 import { MULTI_VIEWS, EXPRESSION_VIEWS, APP_MODES } from './constants';
 import { generateCharacterView, ConsistencyMode } from './services/geminiService';
 import { removeBackgroundWithPhotoroom } from './services/photoroomService';
@@ -28,6 +29,7 @@ const App: React.FC = () => {
     // Also initialize dynamic single views
     initial['chibi-result'] = { viewId: 'chibi-result', imageUrl: null, isLoading: false, error: null };
     initial['remove-bg-result'] = { viewId: 'remove-bg-result', imageUrl: null, isLoading: false, error: null };
+    initial['erase-result'] = { viewId: 'erase-result', imageUrl: null, isLoading: false, error: null };
     return initial;
   });
 
@@ -47,6 +49,25 @@ const App: React.FC = () => {
       });
       return next;
     });
+  };
+
+  const handleEraseResult = (resultBase64: string) => {
+     setViewStatus(prev => ({
+        ...prev,
+        ['erase-result']: { 
+          viewId: 'erase-result', 
+          imageUrl: resultBase64, 
+          isLoading: false, 
+          error: null 
+        }
+      }));
+  };
+
+  const handleEraseError = (error: string) => {
+     setViewStatus(prev => ({
+        ...prev,
+        ['erase-result']: { ...prev['erase-result'], isLoading: false, error: error }
+      }));
   };
 
   const handleGenerate = useCallback(async () => {
@@ -168,6 +189,32 @@ const App: React.FC = () => {
         </div>
       );
     }
+
+    if (activeMode === 'object-erase') {
+      return (
+        <div className="max-w-md mx-auto">
+          {/* If we have a result, show it, otherwise show instructions or nothing specific here since the interaction is on the left */}
+          {viewStatus['erase-result'].imageUrl ? (
+            <ViewCard 
+             config={{
+               id: 'erase-result', 
+               title: '智能擦除完成', 
+               description: '对象已移除并自动补全背景', 
+               promptInstruction: ''
+             }} 
+             data={viewStatus['erase-result']} 
+           />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-64 text-slate-500 border-2 border-dashed border-slate-700 rounded-xl">
+               <p>请在左侧图片上选择要擦除的物体</p>
+               {viewStatus['erase-result'].error && (
+                 <p className="text-red-400 mt-2 text-sm px-4 text-center">{viewStatus['erase-result'].error}</p>
+               )}
+            </div>
+          )}
+        </div>
+      );
+    }
   };
 
   return (
@@ -195,7 +242,7 @@ const App: React.FC = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
         
         {/* Mode Selector */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
           {APP_MODES.map((mode) => {
             const isActive = activeMode === mode.id;
             return (
@@ -203,7 +250,7 @@ const App: React.FC = () => {
                 key={mode.id}
                 onClick={() => handleModeChange(mode.id)}
                 className={`
-                  relative p-4 rounded-xl border text-left transition-all duration-300
+                  relative p-3 lg:p-4 rounded-xl border text-left transition-all duration-300
                   ${isActive 
                     ? 'bg-primary-900/30 border-primary-500 shadow-lg shadow-primary-900/20' 
                     : 'bg-slate-900/50 border-slate-800 hover:border-slate-600 hover:bg-slate-800'
@@ -215,10 +262,10 @@ const App: React.FC = () => {
                      <path strokeLinecap="round" strokeLinejoin="round" d={mode.icon} />
                    </svg>
                 </div>
-                <div className={`font-semibold ${isActive ? 'text-white' : 'text-slate-300'}`}>
+                <div className={`font-semibold text-sm lg:text-base ${isActive ? 'text-white' : 'text-slate-300'}`}>
                   {mode.label}
                 </div>
-                <div className="text-xs text-slate-500 mt-1">{mode.description}</div>
+                <div className="text-[10px] lg:text-xs text-slate-500 mt-1 line-clamp-1">{mode.description}</div>
               </button>
             );
           })}
@@ -226,7 +273,7 @@ const App: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* Left Column: Input */}
+          {/* Left Column: Input / Interaction */}
           <div className="lg:col-span-5 space-y-6">
              {/* Helper Text specific to mode */}
             <div className="prose prose-invert">
@@ -238,12 +285,30 @@ const App: React.FC = () => {
                 {activeMode === 'expressions' && '请上传一张面部特写或肖像照，以获得最佳的面部细节。'}
                 {activeMode === 'chibi' && '上传角色的全身照，将其转换为可爱的 Q 版（2-3头身）风格。'}
                 {activeMode === 'remove-bg' && '上传任何角色图片，使用 Photoroom 自动去除背景并提取主体。'}
+                {activeMode === 'object-erase' && '上传图片后，系统将自动分析。鼠标移动高亮物体，点击选择要擦除的部分。'}
                </p>
             </div>
 
-            <UploadZone onImageSelect={handleImageSelect} />
+            {/* If we are in Erase mode AND have an image, show the interactive eraser. Otherwise show UploadZone */}
+            {activeMode === 'object-erase' && sourceImage ? (
+               <div className="space-y-4">
+                  <ObjectEraser 
+                    imageSrc={sourceImage} 
+                    onResult={handleEraseResult} 
+                    onError={handleEraseError}
+                  />
+                  <button 
+                    onClick={() => setSourceImage(null)}
+                    className="text-xs text-red-400 hover:text-red-300 underline w-full text-center"
+                  >
+                    更换图片
+                  </button>
+               </div>
+            ) : (
+               <UploadZone onImageSelect={handleImageSelect} />
+            )}
 
-            {/* Mode Specific Inputs */}
+            {/* Mode Specific Inputs (Chibi) */}
             {activeMode === 'chibi' && sourceImage && (
               <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-2">
                 <label className="text-xs font-medium text-primary-400 uppercase tracking-wider">Q 版提示词</label>
@@ -256,7 +321,8 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {sourceImage && (
+            {/* For modes OTHER than erase, show the small preview if image exists */}
+            {sourceImage && activeMode !== 'object-erase' && (
               <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
                  <div className="flex justify-between items-center mb-3">
                     <span className="text-sm font-medium text-slate-300">参考原图</span>
@@ -278,36 +344,41 @@ const App: React.FC = () => {
           <div className="lg:col-span-7 flex flex-col h-full">
             
             <div className="flex justify-between items-center mb-6">
-               <h3 className="text-xl font-semibold text-white">生成结果</h3>
+               <h3 className="text-xl font-semibold text-white">
+                 {activeMode === 'object-erase' ? '处理结果' : '生成结果'}
+               </h3>
                
-               <button
-                onClick={handleGenerate}
-                disabled={!sourceImage || isGenerating}
-                className={`
-                  px-6 py-2.5 rounded-lg font-medium text-sm flex items-center gap-2 shadow-lg
-                  ${!sourceImage || isGenerating 
-                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-                    : 'bg-primary-600 hover:bg-primary-500 text-white hover:shadow-primary-500/40 transform hover:-translate-y-0.5 transition-all'
-                  }
-                `}
-              >
-                {isGenerating ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    处理中...
-                  </>
-                ) : (
-                  <>
-                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                       <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
-                     </svg>
-                     {activeMode === 'remove-bg' ? '开始抠图' : '开始生成'}
-                  </>
-                )}
-              </button>
+               {/* Only show the main "Start Generate" button if NOT in erase mode, because Erase has its own button inside the component */}
+               {activeMode !== 'object-erase' && (
+                 <button
+                  onClick={handleGenerate}
+                  disabled={!sourceImage || isGenerating}
+                  className={`
+                    px-6 py-2.5 rounded-lg font-medium text-sm flex items-center gap-2 shadow-lg
+                    ${!sourceImage || isGenerating 
+                      ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
+                      : 'bg-primary-600 hover:bg-primary-500 text-white hover:shadow-primary-500/40 transform hover:-translate-y-0.5 transition-all'
+                    }
+                  `}
+                >
+                  {isGenerating ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      处理中...
+                    </>
+                  ) : (
+                    <>
+                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                         <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+                       </svg>
+                       {activeMode === 'remove-bg' ? '开始抠图' : '开始生成'}
+                    </>
+                  )}
+                </button>
+               )}
             </div>
 
             <div className="flex-1 bg-slate-900/30 rounded-2xl border border-slate-800/50 p-6 overflow-y-auto min-h-[400px]">

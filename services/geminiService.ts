@@ -1,5 +1,5 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 
 // Initialize the client
 // The API key is guaranteed to be in process.env.API_KEY by the environment
@@ -84,11 +84,11 @@ export const generateCharacterView = async (
         ]
       },
       config: {
-        // We allow the model to determine best aspect ratio based on input/task
+        responseModalities: [Modality.IMAGE],
       }
     });
 
-    // Iterate through parts to find the image
+    // Iterate through candidates and parts to find the image
     const candidates = response.candidates;
     if (candidates && candidates.length > 0) {
       const parts = candidates[0].content.parts;
@@ -142,6 +142,9 @@ export const eraseObjectWithGemini = async (
           { inlineData: { mimeType: originalMime, data: originalData } },
           { inlineData: { mimeType: maskMime, data: maskData } }
         ]
+      },
+      config: {
+        responseModalities: [Modality.IMAGE],
       }
     });
 

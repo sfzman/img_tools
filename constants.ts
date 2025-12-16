@@ -23,7 +23,7 @@ export const APP_MODES: { id: AppMode; label: string; description: string; icon:
   { 
     id: 'expressions', 
     label: '表情包生成', 
-    description: '生成5种不同的面部表情',
+    description: '生成多种不同的人脸表情',
     icon: 'M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z'
   },
   { 
@@ -149,34 +149,60 @@ export const SYMMETRIC_PAIRS: [string, string][] = [
 ];
 
 export const EXPRESSION_VIEWS: ViewConfig[] = [
+  // 基础通用表情 (保留原来的多样性)
   {
     id: 'laughing',
-    title: '开怀大笑',
-    description: '快乐的大笑表情',
-    promptInstruction: 'Generate a portrait of this character laughing joyfully (Big Smile/Laugh).'
+    title: '大笑',
+    description: '非常开心的表情',
+    promptInstruction: 'Generate a portrait of this character with a wide, joyful laugh. Eyes crinkled and mouth open in a big smile showing happiness.'
   },
   {
     id: 'angry',
-    title: '愤怒生气',
-    description: '极度愤怒的表情',
-    promptInstruction: 'Generate a portrait of this character looking very angry and furious.'
+    title: '愤怒',
+    description: '生气的表情',
+    promptInstruction: 'Generate a portrait of this character looking very angry. Furrowed brows, intense eyes, and a stern or shouting mouth expression.'
   },
   {
-    id: 'crying',
-    title: '伤心哭泣',
-    description: '流泪悲伤的表情',
-    promptInstruction: 'Generate a portrait of this character crying, looking very sad.'
+    id: 'surprised',
+    title: '惊讶',
+    description: '意外的表情',
+    promptInstruction: 'Generate a portrait of this character with a surprised and shocked expression. Wide eyes, raised eyebrows, and slightly open mouth.'
   },
   {
-    id: 'terrified',
-    title: '惊恐万分',
-    description: '受到惊吓的表情',
-    promptInstruction: 'Generate a portrait of this character looking terrified and shocked.'
+    id: 'fearful',
+    title: '恐惧',
+    description: '害怕的表情',
+    promptInstruction: 'Generate a portrait of this character looking scared and fearful. Wide pupils, trembling lips, and a worried facial tension.'
+  },
+  // 用户指定加入的表情
+  {
+    id: 'smiling',
+    title: '微笑',
+    description: '温和友善的表情',
+    promptInstruction: 'Generate a portrait of this character with a gentle, friendly smile. Closed mouth or slightly parted lips, eyes looking warm and kind.'
   },
   {
-    id: 'scared',
-    title: '害怕畏缩',
-    description: '恐惧害怕的样子',
-    promptInstruction: 'Generate a portrait of this character looking scared, fearful and cowering.'
+    id: 'sad',
+    title: '难过',
+    description: '忧郁伤感的表情',
+    promptInstruction: 'Generate a portrait of this character looking sad and melancholy. Downward-turned mouth, slightly furrowed eyebrows, and a sorrowful gaze.'
+  },
+  {
+    id: 'disgust',
+    title: '厌恶',
+    description: '强烈排斥的表情',
+    promptInstruction: 'Generate a portrait of this character showing a look of disgust and revulsion. Wrinkled nose, curled upper lip, and narrowed eyes as if seeing something unpleasant.'
+  },
+  {
+    id: 'contempt',
+    title: '轻蔑',
+    description: '傲慢不屑的表情',
+    promptInstruction: 'Generate a portrait of this character showing contempt and disdain. A subtle sneer with one corner of the mouth raised, eyes slightly squinting in an arrogant manner.'
+  },
+  {
+    id: 'gritting-teeth',
+    title: '咬牙切齿',
+    description: '极度忍耐或愤怒',
+    promptInstruction: 'Generate a portrait of this character gritting their teeth. Visible clenched jaw, exposed teeth, and intense facial muscles showing great strain or suppressed fury.'
   }
 ];

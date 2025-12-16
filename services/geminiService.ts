@@ -1,98 +1,84 @@
 
 import { GoogleGenAI, Modality } from "@google/genai";
 
-// Initialize the client
-// The API key is guaranteed to be in process.env.API_KEY by the environment
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export type ConsistencyMode = 'strict' | 'expression' | 'style-transfer' | 'extraction';
 
 /**
- * Generates a specific view of a character based on a reference image.
- * Uses gemini-2.5-flash-image for efficient image editing/generation.
+ * Generates a specific view of a character based on front and optional back reference images.
  */
 export const generateCharacterView = async (
-  base64Image: string,
+  frontImage: string,
+  backImage: string | null,
   promptInstruction: string,
   mode: ConsistencyMode = 'strict'
 ): Promise<string> => {
+  // Create a new GoogleGenAI instance right before making an API call to ensure it always uses the most up-to-date API key.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
-    // Clean the base64 string to get just the data
-    const base64Data = base64Image.split(',')[1] || base64Image;
-    const mimeType = base64Image.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/png';
+    const frontData = frontImage.split(',')[1] || frontImage;
+    const frontMime = frontImage.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/png';
+
+    const parts: any[] = [{ text: "" }];
 
     let consistencyPrompt = "";
-    
     switch (mode) {
       case 'strict':
         consistencyPrompt = `
         IMPORTANT CONSISTENCY RULES:
-        1. Keep the character's identity, gender, ethnicity, and body type EXACTLY the same as the reference image.
+        1. Keep the character's identity, gender, ethnicity, and body type EXACTLY the same as the references.
         2. Keep the clothing details, colors, and accessories EXACTLY the same.
-        3. Keep the hair style and color EXACTLY the same.
+        3. Use the provided BACK image to accurately render side and back details.
         4. Render on a plain, neutral background.
         5. High quality, detailed character design.
         `;
         break;
-      
       case 'expression':
         consistencyPrompt = `
         IMPORTANT CONSISTENCY RULES:
-        1. Keep the character's identity, gender, ethnicity, and hair style EXACTLY the same as the reference.
-        2. Keep clothing and accessories EXACTLY the same.
-        3. CHANGE ONLY THE FACIAL EXPRESSION as requested in the prompt.
-        4. Render on a plain, neutral background.
+        1. Keep identity and clothing EXACTLY as reference.
+        2. CHANGE ONLY THE FACIAL EXPRESSION.
+        3. Render on a plain, neutral background.
         `;
         break;
-
-      case 'style-transfer': // For Chibi
+      case 'style-transfer':
         consistencyPrompt = `
-        IMPORTANT STYLE TRANSFER RULES:
-        1. Keep the character's recognizable features (Hair color, eye color, key clothing colors/patterns).
-        2. CHANGE the body proportions to a "Q-version" / Chibi style (2-3 heads tall, large head, small body).
-        3. CHANGE the art style to be cute and illustrated.
-        4. Render on a plain, neutral background.
+        STYLE TRANSFER: Render character in Chibi/Q-version while maintaining recognizable colors and features from references.
         `;
         break;
-
-      case 'extraction': // For Remove BG (simulated via generation on white)
+      case 'extraction':
         consistencyPrompt = `
-        IMPORTANT EXTRACTION RULES:
-        1. COPY the character EXACTLY as they appear in the reference image.
-        2. DO NOT CHANGE pose, lighting, or details.
-        3. PLACE the character on a PURE WHITE background (#FFFFFF).
-        4. Remove all original background elements completely.
+        EXTRACTION: Copy the character exactly as they appear in the reference, but on a pure white background.
         `;
         break;
     }
 
-    const finalPrompt = `${promptInstruction} \n\n ${consistencyPrompt}`;
+    const referenceCount = backImage ? "TWO (front and back)" : "ONE (front)";
+    parts[0].text = `Target View: ${promptInstruction}\n\nI have provided ${referenceCount} reference images of this character. Please ensure perfect consistency across all angles based on these references. \n\n ${consistencyPrompt}`;
+
+    // Add Front Image
+    parts.push({
+      inlineData: { mimeType: frontMime, data: frontData }
+    });
+
+    // Add Back Image if exists
+    if (backImage) {
+      const backData = backImage.split(',')[1] || backImage;
+      const backMime = backImage.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/png';
+      parts.push({
+        inlineData: { mimeType: backMime, data: backData }
+      });
+    }
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [
-          {
-            text: finalPrompt
-          },
-          {
-            inlineData: {
-              mimeType: mimeType,
-              data: base64Data
-            }
-          }
-        ]
-      },
-      config: {
-        responseModalities: [Modality.IMAGE],
-      }
+      contents: { parts },
+      config: { responseModalities: [Modality.IMAGE] }
     });
 
-    // Iterate through candidates and parts to find the image
     const candidates = response.candidates;
     if (candidates && candidates.length > 0) {
-      const parts = candidates[0].content.parts;
-      for (const part of parts) {
+      const resParts = candidates[0].content.parts;
+      for (const part of resParts) {
         if (part.inlineData && part.inlineData.data) {
           return `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
         }
@@ -100,52 +86,34 @@ export const generateCharacterView = async (
     }
 
     throw new Error("No image data found in response");
-
   } catch (error) {
     console.error("Gemini API Error:", error);
     throw error;
   }
 };
 
-/**
- * Erases objects from an image using Gemini 2.5 Flash Image ("nano banana").
- * We send two images:
- * 1. The original image.
- * 2. A mask image (black background, white object) indicating what to remove.
- */
 export const eraseObjectWithGemini = async (
   originalBase64: string,
   maskBase64: string
 ): Promise<string> => {
+  // Create a new GoogleGenAI instance right before making an API call to ensure it always uses the most up-to-date API key.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const originalData = originalBase64.split(',')[1] || originalBase64;
     const originalMime = originalBase64.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/png';
-
     const maskData = maskBase64.split(',')[1] || maskBase64;
     const maskMime = maskBase64.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/png';
-
-    const prompt = `
-    I have provided two images. 
-    The first image is the original picture. 
-    The second image is a black and white mask where the white area represents an object I want to remove.
-    
-    Task: Remove the object highlighted by the white area in the mask from the original image. 
-    Fill in the erased area naturally to match the surrounding background (inpainting). 
-    Do not change anything else in the image. Return the full edited image.
-    `;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [
-          { text: prompt },
+          { text: "Remove the object highlighted by the white area in the mask. Fill naturally." },
           { inlineData: { mimeType: originalMime, data: originalData } },
           { inlineData: { mimeType: maskMime, data: maskData } }
         ]
       },
-      config: {
-        responseModalities: [Modality.IMAGE],
-      }
+      config: { responseModalities: [Modality.IMAGE] }
     });
 
     const candidates = response.candidates;
@@ -157,9 +125,7 @@ export const eraseObjectWithGemini = async (
         }
       }
     }
-    
     throw new Error("No image data found in response");
-
   } catch (error) {
     console.error("Gemini Erasure Error:", error);
     throw error;

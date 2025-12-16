@@ -1,5 +1,6 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
+import JSZip from 'jszip';
 import { UploadZone } from './components/UploadZone';
 import { ViewCard } from './components/ViewCard';
 import { ObjectEraser } from './components/ObjectEraser';
@@ -14,6 +15,7 @@ const App: React.FC = () => {
   const [backImage, setBackImage] = useState<string | null>(null);
   const [chibiPrompt, setChibiPrompt] = useState("拿着一杯奶茶，闭着眼睛，很开心的样子");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isZipping, setIsZipping] = useState(false);
   const [isSymmetric, setIsSymmetric] = useState(false);
   const [selectedViewIds, setSelectedViewIds] = useState<Set<string>>(new Set([...MULTI_VIEWS.map(v => v.id), ...EXPRESSION_VIEWS.map(v => v.id)]));
   
@@ -103,19 +105,40 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
     const currentViews = activeMode === 'multi-view' ? MULTI_VIEWS : EXPRESSION_VIEWS;
     const targets = currentViews.filter(v => viewStatus[v.id].imageUrl && !viewStatus[v.id].isLoading);
-    targets.forEach((view, index) => {
-      setTimeout(() => {
-        const link = document.createElement('a');
-        link.href = viewStatus[view.id].imageUrl!;
-        link.download = `character-${view.id}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }, index * 300);
-    });
+    
+    if (targets.length === 0) return;
+    
+    setIsZipping(true);
+    try {
+      const zip = new JSZip();
+      const folderName = `character-${activeMode}-${new Date().getTime()}`;
+      const folder = zip.folder(folderName);
+      
+      targets.forEach((view) => {
+        const url = viewStatus[view.id].imageUrl!;
+        // Strip data:image/png;base64, prefix
+        const base64Data = url.split(',')[1];
+        folder?.file(`${view.id}.png`, base64Data, { base64: true });
+      });
+
+      const content = await zip.generateAsync({ type: 'blob' });
+      const downloadUrl = URL.createObjectURL(content);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `${folderName}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error('ZIP generation failed:', error);
+      alert('打包下载失败，请重试');
+    } finally {
+      setIsZipping(false);
+    }
   };
 
   const handleGenerate = useCallback(async () => {
@@ -155,14 +178,12 @@ const App: React.FC = () => {
       updateView('chibi-result', { isLoading: true, error: null, imageUrl: null });
       try {
         const chibiUrl = await generateCharacterView(frontImage, backImage, `Generate a Chibi of this character. ${chibiPrompt}`, 'style-transfer');
-        // Fix for "No value exists in scope for the shorthand property 'imageUrl'" by using explicit property name
         updateView('chibi-result', { imageUrl: chibiUrl, isLoading: false });
       } catch (err: any) { updateView('chibi-result', { isLoading: false, error: err.message }); }
     } else if (activeMode === 'remove-bg') {
       updateView('remove-bg-result', { isLoading: true, error: null, imageUrl: null });
       try {
         const bgRemovedUrl = await removeBackgroundWithPhotoroom(frontImage);
-        // Using unique variable name and explicit property name to ensure correctness
         updateView('remove-bg-result', { imageUrl: bgRemovedUrl, isLoading: false });
       } catch (err: any) { updateView('remove-bg-result', { isLoading: false, error: err.message }); }
     }
@@ -292,7 +313,13 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-4 mt-1.5 animate-in fade-in slide-in-from-left-2 duration-300">
                       <button onClick={handleToggleAll} className="text-[10px] text-primary-400 hover:text-primary-300 font-black uppercase tracking-widest transition-colors flex items-center gap-1.5">全选</button>
                       {Object.values(viewStatus).some(v => v.imageUrl) && (
-                         <button onClick={handleDownloadAll} className="text-[10px] text-emerald-400 hover:text-emerald-300 font-black uppercase tracking-widest flex items-center gap-2">全部下载</button>
+                         <button 
+                            onClick={handleDownloadAll} 
+                            disabled={isZipping}
+                            className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors ${isZipping ? 'text-slate-500' : 'text-emerald-400 hover:text-emerald-300'}`}
+                          >
+                            {isZipping ? "打包中..." : "打包下载 (.zip)"}
+                          </button>
                       )}
                     </div>
                   )}

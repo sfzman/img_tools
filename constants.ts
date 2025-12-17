@@ -51,7 +51,7 @@ export const MULTI_VIEWS: ViewConfig[] = [
     id: 'left-75',
     title: '左后 3/4',
     description: '左后方视角 (偏背面)',
-    promptInstruction: 'Generate a 3/4 angle view of this character turned 75 degrees to the left, showing more of the back and shoulder while still revealing part of the side face.'
+    promptInstruction: 'Generate a rear-side view (approx 135 degrees) turned to the left. CRITICAL: The character must be facing AWAY from the camera. The head MUST follow the body orientation and look into the distance. Do NOT look back at the camera.'
   },
   {
     id: 'left-top-45',
@@ -81,7 +81,7 @@ export const MULTI_VIEWS: ViewConfig[] = [
     id: 'right-75',
     title: '右后 3/4',
     description: '右后方视角 (偏背面)',
-    promptInstruction: 'Generate a 3/4 angle view of this character turned 75 degrees to the right, showing more of the back and shoulder while still revealing part of the side face.'
+    promptInstruction: 'Generate a rear-side view (approx 135 degrees) turned to the right. CRITICAL: The character must be facing AWAY from the camera. The head MUST follow the body orientation and look into the distance. Do NOT look back at the camera.'
   },
   {
     id: 'right-top-45',
@@ -105,13 +105,13 @@ export const MULTI_VIEWS: ViewConfig[] = [
     id: 'back-left-45',
     title: '背面左 45°',
     description: '背面偏左视角',
-    promptInstruction: 'Generate a back view of this character, slightly turned towards the left (Back-Left 3/4 view).'
+    promptInstruction: 'Generate a view from behind, angled slightly to the left. The character is facing COMPLETELY AWAY from the viewer. The face should NOT be visible. The gaze is directed forward into the distance. Do NOT turn the head towards the camera.'
   },
   {
     id: 'back-right-45',
     title: '背面右 45°',
     description: '背面偏右视角',
-    promptInstruction: 'Generate a back view of this character, slightly turned towards the right (Back-Right 3/4 view).'
+    promptInstruction: 'Generate a view from behind, angled slightly to the right. The character is facing COMPLETELY AWAY from the viewer. The face should NOT be visible. The gaze is directed forward into the distance. Do NOT turn the head towards the camera.'
   },
   {
     id: 'back-bottom',
